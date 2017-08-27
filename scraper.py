@@ -1,24 +1,48 @@
-# This is a template for a Python scraper on morph.io (https://morph.io)
-# including some code snippets below that you should find helpful
+###############################################################################
+# START HERE: Tutorial 3: More advanced scraping. Shows how to follow 'next' 
+# links from page to page: use functions, so you can call the same code 
+# repeatedly. SCROLL TO THE BOTTOM TO SEE THE START OF THE SCRAPER.
+###############################################################################
 
-# import scraperwiki
-# import lxml.html
-#
-# # Read in a page
-# html = scraperwiki.scrape("http://foo.com")
-#
-# # Find something on the page using css selectors
-# root = lxml.html.fromstring(html)
-# root.cssselect("div[align='left']")
-#
-# # Write out to the sqlite database using scraperwiki library
-# scraperwiki.sqlite.save(unique_keys=['name'], data={"name": "susan", "occupation": "software developer"})
-#
-# # An arbitrary query against the database
-# scraperwiki.sql.select("* from data where 'name'='peter'")
+import scraperwiki
+import urlparse
+import lxml.html
 
-# You don't have to do things with the ScraperWiki and lxml libraries.
-# You can use whatever libraries you want: https://morph.io/documentation/python
-# All that matters is that your final data is written to an SQLite database
-# called "data.sqlite" in the current working directory which has at least a table
-# called "data".
+# scrape_table function: gets passed an individual page to scrape
+def scrape_table(root):
+    rows = root.cssselect("table.data tr")  # selects all <tr> blocks within <table class="data">
+    for row in rows:
+        # Set up our data record - we'll need it later
+        record = {}
+        table_cells = row.cssselect("td")
+        if table_cells: 
+            record['Artist'] = table_cells[0].text
+            record['Album'] = table_cells[1].text
+            record['Released'] = table_cells[2].text
+            record['Sales m'] = table_cells[4].text
+            # Print out the data we've gathered
+            print record, '------------'
+            # Finally, save the record to the datastore - 'Artist' is our unique key
+            scraperwiki.datastore.save(["Artist"], record)
+        
+# scrape_and_look_for_next_link function: calls the scrape_table
+# function, then hunts for a 'next' link: if one is found, calls itself again
+def scrape_and_look_for_next_link(url):
+    html = scraperwiki.scrape(url)
+    print html
+    root = lxml.html.fromstring(html)
+    scrape_table(root)
+    next_link = root.cssselect("a.next")
+    print next_link
+    if next_link:
+        next_url = urlparse.urljoin(base_url, next_link[0].attrib.get('href'))
+        print next_url
+        scrape_and_look_for_next_link(next_url)
+
+# ---------------------------------------------------------------------------
+# START HERE: define your starting URL - then 
+# call a function to scrape the first page in the series.
+# ---------------------------------------------------------------------------
+base_url = 'https://paulbradshaw.github.io/'
+starting_url = urlparse.urljoin(base_url, 'scraping-for-everyone/webpages/example_table_1.html')
+scrape_and_look_for_next_link(starting_url)
